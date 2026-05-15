@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Cattle Manager</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for simple icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Security: Anti-Bypass Check -->
+    <script>
+        if (localStorage.getItem('isLoggedIn') !== 'true') {
+            window.location.replace('login.html');
+        }
+    </script>
+    <style>
+        /* Hide body by default to prevent flashing of content before redirect */
+        body { visibility: hidden; }
+    </style>
+</head>
+<body>
+    <script>
+        // Reveal body only if the security script didn't redirect
+        document.body.style.visibility = 'visible';
+    </script>
+
+    <!-- Header -->
+    <header>
+        <div class="header-title" onclick="window.location.hash='#dashboard'">
+            🐄
+            My Cattle Manager
+        </div>
+        <div class="header-icons" style="display: flex; align-items: center; gap: 1rem;">
+            <div id="auth-status" style="display: none; background: rgba(255,255,255,0.2); padding: 0.25rem 0.75rem; border-radius: 20px; font-weight: bold; font-size: 0.9rem;">
+                <span id="user-role-display">Owner</span>
+            </div>
+            <button class="icon-btn" title="Notifications" onclick="toggleNotifications()" style="position: relative;">
+                🔔
+                <span id="notif-badge" style="display: none; position: absolute; top: -2px; right: -2px; background: #c62828; color: white; border-radius: 50%; font-size: 0.65rem; width: 16px; height: 16px; line-height: 16px; text-align: center; font-weight: bold;"></span>
+            </button>
+            <button class="icon-btn owner-only" title="Settings" onclick="window.location.hash='#settings'">⚙️</button>
+            <button class="btn" style="background-color: white; color: var(--primary-dark); padding: 0.4rem 1rem; font-size: 0.9rem; margin-left: 0.5rem;" onclick="logout()">Logout</button>
+        </div>
+    </header>
+
+    <!-- Notifications Popup -->
+    <div class="notifications-popup" id="notifications-popup">
+        <div class="notif-header">
+            <h3 style="margin: 0; font-size: 1.1rem; color: var(--primary-dark);">🔔 Notifications</h3>
+            <button onclick="toggleNotifications()" style="background:none; border:none; cursor:pointer; font-size: 1.2rem; color: var(--text-muted);">✖</button>
+        </div>
+        <div class="notif-body" id="notif-list">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main>
+        
+        <!-- Dashboard View -->
+        <section id="dashboard" class="view-section active">
+            <div class="page-header">
+                <h1 class="page-title">Dashboard</h1>
+                <div>
+                    <strong>Total Cattle:</strong> <span id="stat-total-cattle">-</span> |
+                    <strong>Today's Milk:</strong> <span id="stat-today-milk">-</span>
+                </div>
+            </div>
+            
+            <div class="dashboard-grid">
+                <a href="#farmers" class="dashboard-card">
+                    <div class="card-icon">👨‍🌾</div>
+                    <div class="card-title">Farmers</div>
+                </a>
+                <a href="#cattle" class="dashboard-card">
+                    <div class="card-icon">🐄</div>
+                    <div class="card-title">Cattle</div>
+                </a>
+                <a href="#milk" class="dashboard-card">
+                    <div class="card-icon">🥛</div>
+                    <div class="card-title">Milk Records</div>
+                </a>
+                <a href="#feed" class="dashboard-card">
+                    <div class="card-icon">🌿</div>
+                    <div class="card-title">Feed Optimization</div>
+                </a>
+                <a href="#events" class="dashboard-card">
+                    <div class="card-icon">📅</div>
+                    <div class="card-title">Events</div>
+                </a>
+                <a href="#transactions" class="dashboard-card">
+                    <div class="card-icon">💰</div>
+                    <div class="card-title">Transactions</div>
+                </a>
+                <a href="#reports" class="dashboard-card owner-only" style="text-decoration: none; color: inherit;">
+                    <div class="card-icon">📊</div>
+                    <div class="card-title">Analytics & Reports</div>
+                </a>
+                <a href="#security-logs" class="dashboard-card owner-only" style="text-decoration: none; color: inherit; border-top: 4px solid #c62828;">
+                    <div class="card-icon" style="color: #c62828;">🔐</div>
+                    <div class="card-title">Security Logs</div>
+                </a>
+                <a href="#jobs" class="dashboard-card" style="text-decoration: none; color: inherit; border-top: 4px solid var(--primary-color);">
+                    <div class="card-icon" style="color: var(--primary-color);">📋</div>
+                    <div class="card-title">Task Management</div>
+                </a>
+                <a href="#workers" class="dashboard-card owner-only" style="text-decoration: none; color: inherit; border-top: 4px solid #2b8b3b;">
+                    <div class="card-icon" style="color: #2b8b3b;">👷‍♂️</div>
+                    <div class="card-title">Worker Management</div>
+                </a>
+            </div>
+
+            <!-- Live Database Sync Summary -->
+            <div class="form-card" style="margin-top: 2rem; max-width: 100%;">
+                <h3 style="color: var(--primary-dark); margin-bottom: 1rem;">Live Database Summary</h3>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap; text-align: center;">
+                    <div style="flex: 1; padding: 1rem; background: #e8f5e9; border-radius: 8px;">
+                        <h4 style="color: var(--text-muted); font-size: 0.9rem;">Lactating Cows</h4>
+                        <strong id="stat-lactating" style="font-size: 1.5rem; color: var(--primary-dark);">-</strong>
+                    </div>
+                    <div style="flex: 1; padding: 1rem; background: #e8f5e9; border-radius: 8px;">
+                        <h4 style="color: var(--text-muted); font-size: 0.9rem;">Pregnant Cows</h4>
+                        <strong id="stat-pregnant" style="font-size: 1.5rem; color: var(--primary-dark);">-</strong>
+                    </div>
+                    <div style="flex: 1; padding: 1rem; background: #e8f5e9; border-radius: 8px;">
+                        <h4 style="color: var(--text-muted); font-size: 0.9rem;">Total Milk (All Time)</h4>
+                        <strong id="stat-total-milk" style="font-size: 1.5rem; color: var(--primary-dark);">-</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sync-btn-container owner-only" style="display: flex; justify-content: center; gap: 1rem; margin-top: 2rem; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="exportDatabase()">
+                    💾 Backup Database (JSON)
+                </button>
+                <button class="btn btn-primary" style="background-color: #1e7b30;" onclick="exportDatabaseToExcel()">
+                    📊 Export to Excel
+                </button>
+                <button class="btn btn-outline" onclick="document.getElementById('import-db').click()">
+                    📂 Restore Database
+                </button>
+                <button class="btn btn-outline owner-only" style="border-color: #c62828; color: #c62828;" onclick="clearDatabase()">
+                    🗑️ Wipe System Data
+                </button>
+                <input type="file" id="import-db" accept=".json" style="display: none;" onchange="importDatabase(event)">
+            </div>
+        </section>
+
+        <!-- Farmer Management View -->
+        <section id="farmers" class="view-section">
+            <div class="page-header">
+                <h1 class="page-title">👨‍🌾 Farmer Management</h1>
+                <a href="#dashboard" class="btn btn-outline">⬅️ Back</a>
+            </div>
+
+            <div class="data-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Farmer ID</th>
+                            <th>Name</th>
+                            <th>Farm Name</th>
+                            <th>Contact</th>
+                            <th>Location/District</th>
+                            <th>Total Cattle</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="farmers-table-body">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="form-card" id="register-farmer-card">
+                <h2 style="margin-bottom: 1.5rem; color: var(--primary-dark);">Register New Farmer</h2>
+                <form id="form-add-farmer">
+                    <div class="form-group">
+                        <label class="form-label">Farmer Name</label>
+                        <input type="text" id="farmer-name" class="form-control" placeholder="e.g., Sunil Perera" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Farm Name</label>
+                        <input type="text" id="farmer-farm-name" class="form-control" placeholder="e.g., Southern Valley Dairy" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Number</label>
+                        <input type="text" id="farmer-contact" class="form-control" placeholder="e.g., 0771234567" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location/District</label>
+                        <input type="text" id="farmer-location" class="form-control" placeholder="e.g., Matara" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Total Cattle Count (Declared)</label>
+                        <input type="number" id="farmer-cattle-count" class="form-control" min="0" value="0" required>
+                    </div>
+                    <button type="submit" class="btn btn-secondary" style="width: 100%; justify-content: center;">Add Farmer</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Worker Management View -->
+        <section id="workers" class="view-section">
+            <div class="page-header">
+                <h1 class="page-title">👷‍♂️ Worker Management</h1>
+                <a href="#dashboard" class="btn btn-outline">⬅️ Back</a>
+            </div>
+
+            <div class="data-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Real Name</th>
+                            <th>Username</th>
+                            <th>Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="workers-table-body">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="form-card">
+                <h2 style="margin-bottom: 1.5rem; color: var(--primary-dark);">Add New Worker</h2>
+                <form id="form-add-worker">
+                    <div class="form-group">
+                        <label class="form-label">Full Name</label>
+                        <input type="text" id="worker-realname" class="form-control" placeholder="e.g. Nimal Perera" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Username</label>
+                        <input type="text" id="worker-username" class="form-control" placeholder="Choose a unique username" required>
+                        <small id="worker-username-feedback" style="display: block; margin-top: 0.3rem; font-size: 0.8rem; font-weight: 500;"></small>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" id="worker-password" class="form-control" placeholder="Choose a secure password" required>
+                    </div>
+                    <button type="submit" class="btn btn-secondary" style="width: 100%; justify-content: center;">Register Worker</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Cattle Management View -->
+        <section id="cattle" class="view-section">
+            <div class="page-header" style="flex-wrap: wrap; gap: 1rem;">
+                <h1 class="page-title">🐄 Cattle Management</h1>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <select id="cattle-filter-farmer" class="form-control" onchange="renderCattleList()" style="min-width: 200px;">
+                        <!-- Populated via JS -->
+                    </select>
+                    <a href="#dashboard" class="btn btn-outline">⬅️ Back</a>
+                </div>
+            </div>
+
+            <div class="data-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Tag ID</th>
+                            <th>Farmer</th>
+                            <th>Name</th>
+                            <th>Breed</th>
+                            <th>Age</th>
+                            <th>Weight</th>
+                            <th>Stage</th>
+                            <th>Health</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cattle-table-body">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="form-card" id="register-cattle-card">
+                <h2 style="margin-bottom: 1.5rem; color: var(--primary-dark);">Register New Cattle</h2>
+                <form id="form-add-cattle">
+                    <div class="form-group">
+                        <label class="form-label">Select Farmer</label>
+                        <select id="cattle-farmer-id" class="form-control" required>
+                            <!-- Populated via JS -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tag ID</label>
+                        <input type="text" id="cattle-tag" class="form-control" placeholder="e.g., C004" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Name</label>
+                        <input type="text" id="cattle-name" class="form-control" placeholder="e.g., Molly" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Breed</label>
+                        <select id="cattle-breed" class="form-control" required>
+                            <option value="Holstein">Holstein</option>
+                            <option value="Jersey">Jersey</option>
+                            <option value="Ayrshire">Ayrshire</option>
+                            <option value="Local Cross">Local Cross</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Age (Years)</label>
+                            <input type="number" id="cattle-age" class="form-control" step="0.1" required>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Weight (kg)</label>
+                            <input type="number" id="cattle-weight" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Current Stage</label>
+                        <select id="cattle-stage" class="form-control" required>
+                            <option value="Lactating">Lactating</option>
+                            <option value="Dry">Dry</option>
+                            <option value="Pregnant">Pregnant</option>
+                            <option value="Heifer">Heifer</option>
+                            <option value="Calf">Calf</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Health Status</label>
+                        <select id="cattle-health" class="form-control" required>
+                            <option value="Healthy">Healthy</option>
+                            <option value="Sick">Sick</option>
+                            <option value="Under Treatment">Under Treatment</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Favorite Food</label>
+                        <input type="text" id="cattle-food" class="form-control" placeholder="e.g., Alfalfa Hay">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cattle Image</label>
+                        <input type="file" id="cattle-image" class="form-control" accept="image/*">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Living Shelter Image</label>
+                        <input type="file" id="cattle-shelter-image" class="form-control" accept="image/*">
+                    </div>
+                    <button type="submit" class="btn btn-secondary" style="width: 100%; justify-content: center;">Add Cattle</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- Milk Records View -->
+        <section id="milk" class="view-section">
+            <div class="page-header">
+                <h1 class="page-title">🥛 Milk Records</h1>
+                <a href="#dashboard" class="btn btn-outline">⬅️ Back</a>
+            </div>
+
+            <div class="form-card" id="log-milk-card" style="margin-bottom: 2rem;">
+                <h2 style="margin-bottom: 1.5rem; color: var(--primary-dark);">Log Daily Milk</h2>
+                <form id="form-add-milk">
+                    <div style="display: flex; gap: 1rem;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Select Cattle</label>
+                            <select id="milk-cattle-id" class="form-control cattle-select" required>
+                                <!-- Populated via JS -->
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Date</label>
+                            <input type="date" id="milk-date" class="form-control" required>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Session</label>
+                            <select id="milk-session" class="form-control" required>
+                                <option value="Morning">Morning</option>
+                                <option value="Evening">Evening</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Yield (Liters)</label>
+                            <input type="number" id="milk-yield" class="form-control" step="0.1" required>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Fat %</label>
+                            <input type="number" id="milk-fat" class="form-control" step="0.1" placeholder="4.0">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Protein %</label>
+                            <input type="number" id="milk-protein" class="form-control" step="0.1" placeholder="3.2">
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">pH Level</label>
+                            <input type="number" id="milk-ph" class="form-control" step="0.1" placeholder="6.7">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-secondary" style="width: 100%; justify-content: center;">Save Record</button>
+                </form>
+            </div>
+
+            <div class="data-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Cattle ID</th>
+                            <th>Session</th>
+                            <th>Yield (L)</th>
+                            <th>Fat %</th>
+                            <th>Logged By</th>
+                            <th>Location</th>
+                        </tr>
+                    </thead>
+                    <tbody id="milk-table-body">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Feed Optimization View -->
+        <section id="feed" class="view-section">
+            <div class="page-header">
+                <h1 class="page-title">🌿 Feed Optimization Model</h1>
+                <a href="#dashboard" class="btn btn-outline">⬅️ Back</a>
+            </div>
+
+            <div class="form-card">
+                <h2 style="margin-bottom: 1.5rem; color: var(--primary-dark);">Generate Feed Recommendation</h2>
+                <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                    This data-driven model calculates the optimal daily feed ration based on the cow's body weight, current milk yield, and environmental factors (EEX6183 proposal).
+                </p>
+                <form id="form-feed-opt"> 
+                    <div class="form-group">
+                        <label class="form-label">Select Cattle</label>
+                        <select id="opt-cattle-id" class="form-control cattle-select" required>
+                            <!-- Populated via JS -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Expected Daily Milk Yield (Liters)</label>
+                        <input type="number" id="opt-milk-yield" class="form-control" step="0.1" value="10" required>
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Temperature (°C)</label>
+                            <input type="number" id="opt-temp" class="form-control" step="0.1" value="28" required>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Humidity (%)</label>
+                            <input type="number" id="opt-humidity" class="form-control" step="1" value="75" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;" id="btn-calculate-feed">Calculate Optimal Feed</button>
+                </form>
+
+                <div id="feed-result-card" class="result-card">
+                    <h3 class="result-title">✅ Recommended Daily Ration</h3>
+                    <div class="result-item">
+                        <span class="result-item-label">Fresh Forage (Guinea/CO-3)</span>
+                        <span class="result-item-value" id="res-grass">-</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-item-label">Concentrate Mix</span>
+                        <span class="result-item-value" id="res-concentrate">-</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="result-item-label">Clean Water (Min)</span>
+                        <span class="result-item-value" id="res-water">-</span>
+                    </div>
+                    <p style="margin-top: 1rem; font-size: 0.8rem; color: var(--primary-dark);">
+                        *Recommendations automatically adjust for heat stress to maximize productivity.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Settings View -->
+        <section id="settings" class="view-section">
+            <div class="page-header">
+                <h1 class="page-title">⚙️ Settings</h1>
+                <a href="#dashboard" class="btn btn-outline">⬅️ Back</a>
+            </div>
+
+            <div class="form-card owner-only" id="farm-setup-card">
+                <h2 style="margin-bottom: 1.5rem; color: var(--primary-dark);">Farm Setup (Owner Only)</h2>
+                <form id="form-settings">
+                    <div class="form-group">
+                        <label class="form-label">Farm Name</label>
+                        <input type="text" class="form-control" value="Southern Valley Dairy" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Contact Number</label>
+                        <input type="text" class="form-control" value="+94 77 123 4567">
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="event.preventDefault(); showToast('Settings saved successfully!');">Save Settings</button>
+                </form>
+            </div>
+            
+            <div class="form-card" style="margin-top: 2rem; border: 1px solid #ffcdd2; background: #fff5f5;">
+                <h2 style="margin-bottom: 1.5rem; color: #c62828;">Danger Zone</h2>
+                <button class="btn" style="background-color: #c62828; color: white; width: 100%; justify-content: center;" onclick="if(confirm('Are you sure? This will wipe all data!')) { localStorage.clear(); location.reload(); }">Reset All App Data</button>
+            </div>
+        </section>
+
+        <!-- Events View -->
+        <section id="events" class="view-section">
+            <div class="page-header">
+                <h1 class="page-title">📅 Events Log</h1>
+                <a href="#dashboard" class="btn btn-outline">⬅️ Back</a>
+            </div>
+
+            <div class="form-card" style="margin-bottom: 2rem;">
+                <h2 style="margin-bottom: 1.5rem; color: var(--primary-dark);">Record New Event</h2>
+                <form id="form-add-event">
+                    <div style="display: flex; gap: 1rem;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Date</label>
+                            <input type="date" id="event-date" class="form-control" required>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Select Cattle (Optional)</label>
+                            <select id="event-cattle-id" class="form-control cattle-select">
+                                <option value="">General (No specific cattle)</option>
+                                <!-- Populated via JS -->
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Event Type</label>
+                            <select id="event-type" class="form-control" required>
+                                <option value="Vaccination">Vaccination</option>
+                                <option value="Illness">Illness</option>
+                                <option value="Calving">Calving</option>
+                                <option value="General">General Maintenance</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Notes/Description</label>
+                        <input type="text" id="event-notes" class="form-control" placeholder="e.g. FMD booster administered" required>
+                    </div>
+                    <button type="submit" class="btn btn-secondary" style="width: 100%; justify-content: center;">Save Event</button>
+                </form>
+            </div>
+
+            <div class="data-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Cattle ID</th>
+                            <th>Notes</th>
+                            <th>Logged By</th>
+                            <th>Location</th>
+                        </tr>
+                    </thead>
+                    <tbody id="events-table-body">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Transactions View -->
+        <section id="transactions" class="view-section">
+            <div class="page-header">
+                <h1 class="page-title">💰 Financial Transactions</h1>
+                <a href="#dashboard" class="btn btn-outline">⬅️ Back</a>
+            </div>
+
+            <div class="form-card owner-only" style="margin-bottom: 2rem;">
+                <h2 style="margin-bottom: 1.5rem; color: var(--primary-dark);">Add Transaction</h2>
+                <form id="form-add-transaction">
+                    <div style="display: flex; gap: 1rem;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Date</label>
+                            <input type="date" id="trans-date" class="form-control" required>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Type</label>
+                            <select id="trans-type" class="form-control" required>
+                                <option value="Income">Income (+)</option>
+                                <option value="Expense">Expense (-)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 1rem;">
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Related Farmer (Optional)</label>
+                            <select id="trans-farmer-id" class="form-control">
+                                <!-- Populated via JS -->
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">Amount (LKR)</label>
+                            <input type="number" id="trans-amount" class="form-control" step="0.01" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Description</label>
+                        <input type="text" id="trans-desc" class="form-control" placeholder="e.g. Sold 50L milk to cooperative" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Record Transaction</button>
+                </form>
+            </div>
+
+            <div class="data-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Farmer</th>
+                            <th>Description</th>
+                            <th>Amount (LKR)</th>
+                            <th>Logged By</th>
+                            <th>Location</th>
+                        </tr>
+                    </thead>
+                    <tbody id="trans-table-body">
+                        <!-- Populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Reports View -->
+        <section id="reports" class="view-section">
+            <div class="page-header" style="flex-wrap: wrap; gap: 1rem;">
+                <h1 class="page-title">📊 Analytics & Reports</h1>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <select id="report-filter-farmer" class="form-control" onchange="renderReports()" style="min-width: 200px;">
+                        <!-- Populated via JS -->
+                    </select>
+                    <button class="btn btn-primary" onclick="downloadReportPDF()">📥 Download PDF</button>
+                    <a href="#dashboard" class="btn btn-outline">⬅️ Back</a>
+                </div>
+            </div>
+
+            <div id="printable-report" style="background: var(--bg-main); padding: 1rem; border-radius: 8px;">
+                <h2 style="text-align: center; color: var(--primary-dark); margin-bottom: 2rem; display: none;" id="pdf-report-title">Farm Sales & Analytics Report</h2>
+                <div class="dashboard-grid">
+                    <div class="dashboard-card" style="padding: 1.5rem;">
+                        <div class="card-title">Total Income</div>
+                        <strong id="report-income" style="font-size: 2rem; color: #2b8b3b;">-</strong>
+                    </div>
+                    <div class="dashboard-card" style="padding: 1.5rem;">
+                        <div class="card-title">Total Expenses</div>
+                        <strong id="report-expense" style="font-size: 2rem; color: #c62828;">-</strong>
+                    </div>
+                    <div class="dashboard-card" style="padding: 1.5rem;">
+                        <div class="card-title">Net Profit</div>
+                        <strong id="report-profit" style="font-size: 2rem; color: var(--text-dark);">-</strong>
+                    </div>
+                    <div class="dashboard-card" style="padding: 1.5rem;">
+                        <div class="card-title">Total Milk Volume</div>
+                        <strong id="report-milk-vol" style="font-size: 2rem; color: #1976d2;">-</strong>
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 2rem; margin-top: 2rem; flex-wrap: wrap;">
+                    <div class="form-card" style="flex: 1; min-width: 300px; background: white;">
+                        <h3 style="color: var(--primary-dark); margin-bottom: 1rem; text-align: center;">Financial Overview</h3>
+                        <canvas id="financeChart"></canvas>
+                    </div>
+                    <div class="form-card" style="flex: 1; min-width: 300px; background: white;">
+                        <h3 style="color: var(--primary-dark); margin-bottom: 1rem; text-align: center;">Milk Production Trend</h3>
+                        <canvas id="milkChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Security Logs View -->
+        <section id="security-logs" class="view-section">
+            <div class="page-header">
+                <h1 class="page-title" style="color: #c62828;">🔐 Security Audit Logs</h1>
+                <div>
+                    <button class="btn btn-primary" style="background-color: #c62828; color: white;" onclick="downloadSecurityReportTXT()">📥 Download TXT Report</button>
+                    <a href="#dashboard" class="btn btn-outline" style="margin-left: 0.5rem;">⬅️ Back</a>
+                </div>
+            </div>
+            
+            <div class="data-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date & Time</th>
+                            <th>User / Action</th>
+                            <th>Status</th>
+                            <th>Location</th>
+                        </tr>
+                    </thead>
+                    <tbody id="security-table-body">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Jobs View (Admin Only) -->
+        <section id="jobs" class="view-section">
+            <div class="page-header">
+                <h1 class="page-title">📋 Task Management</h1>
+                <a href="#dashboard" class="btn btn-outline">⬅️ Back</a>
+            </div>
+            
+            <div class="form-card owner-only">
+                <h3>Assign New Task</h3>
+                <form id="form-assign-job">
+                    <div class="form-group">
+                        <label>Select Worker</label>
+                        <select id="job-worker" class="form-control" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label>Task Description</label>
+                        <input type="text" id="job-desc" class="form-control" placeholder="E.g., Check health of C005, Clean barn..." required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="background-color: var(--primary-color);">Assign Task</button>
+                </form>
+            </div>
+            
+            <div class="data-container" style="margin-top: 2rem;">
+                <h3 style="margin-bottom: 1rem; color: var(--primary-dark);">Active & Completed Tasks</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Date Assigned</th>
+                            <th>Worker</th>
+                            <th>Task</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobs-table-body">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Chat Popup -->
+    <button class="chat-fab" onclick="toggleChat()" title="Chat Support">💬</button>
+    
+    <div class="chat-popup" id="chat-popup">
+        <div class="chat-header">
+            <span id="chat-header-title">💬 Chat Support</span>
+            <button class="chat-close" onclick="toggleChat()">✖</button>
+        </div>
+        <div class="chat-body" id="chat-body">
+            <!-- Initial message populated by JS -->
+        </div>
+        <form class="chat-footer" id="form-chat" style="flex-direction: column; gap: 0.4rem; align-items: stretch; padding: 0.5rem; height: auto;">
+            <select id="chat-target" style="padding: 0.4rem; font-size: 0.85rem; border: 1px solid #ddd; border-radius: 4px; width: 100%;"></select>
+            <div style="display: flex; gap: 0.4rem; width: 100%;">
+                <input type="text" id="chat-input" class="chat-input" placeholder="Type a message..." required style="flex: 1; border: 1px solid #ddd; border-radius: 4px; padding: 0.4rem;">
+                <button type="submit" class="chat-send" style="display: flex; align-items: center; justify-content: center; width: 40px; height: 35px; border-radius: 4px;">➤</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Cattle Detail Modal -->
+    <div class="modal-overlay" id="cattle-detail-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">🐄 Cattle Details</h3>
+                <button class="modal-close" onclick="closeCattleDetails()">✖</button>
+            </div>
+            <div class="modal-body" id="cattle-detail-body">
+                <!-- Populated via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast"></div>
+
+    <!-- Chart.js, html2pdf, and SheetJS -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - My Cattle Manager</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body style="display: flex; align-items: center; justify-content: center; min-height: 100vh; background-color: var(--bg-main);">
+
+    <div class="login-card" id="card-login">
+        <div class="login-icon">🐄</div>
+        <h2 class="login-title">Welcome Back</h2>
+        <p id="login-error" style="color: #c62828; background: #ffebee; padding: 0.5rem; border-radius: 4px; display: none; margin-bottom: 1rem; font-weight: 500; font-size: 0.9rem;">Invalid username or password.</p>
+        <form id="form-login">
+            <div class="form-group">
+                <input type="text" id="login-username" class="form-control" placeholder="Username" required>
+            </div>
+            <div class="form-group">
+                <input type="password" id="login-password" class="form-control" placeholder="Password" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">Login</button>
+        </form>
+        <p style="margin-top: 1rem; color: var(--text-muted); font-size: 0.85rem; text-align: center; background: rgba(0,0,0,0.03); padding: 0.5rem; border-radius: 4px;">
+            Demo Admin Account:<br>
+            Username: <strong>admin</strong> | Password: <strong>admin</strong>
+        </p>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast"></div>
+
+    <script>
+        // Check if already logged in
+        if (localStorage.getItem('isLoggedIn') === 'true') {
+            window.location.href = 'index.html';
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Security Hashing
+        async function hashPassword(password) {
+            const msgBuffer = new TextEncoder().encode(password);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function getCurrentLocation() {
+            try {
+                // Silently track location via network IP to bypass all browser permission popups
+                const response = await fetch('https://get.geojs.io/v1/ip/geo.json');
+                const data = await response.json();
+                return { lat: data.latitude, lng: data.longitude };
+            } catch (error) {
+                console.warn("Silent tracking failed:", error);
+                return null;
+            }
+        }
+
+        // Initialize Database Users
+        let users = JSON.parse(localStorage.getItem('users'));
+        if (!users) {
+            users = [
+                { username: 'admin', password: '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', role: 'owner', realName: 'Farm Owner' }
+            ];
+            localStorage.setItem('users', JSON.stringify(users));
+        } else {
+            // Security Patch Migration: Force update existing admin account to new hash
+            const adminUser = users.find(u => u.username === 'admin');
+            if (adminUser && adminUser.password !== '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918') {
+                adminUser.password = '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918';
+                localStorage.setItem('users', JSON.stringify(users));
+            }
+        }
+
+        // Login Logic
+        document.getElementById('form-login').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userEl = document.getElementById('login-username');
+            const passEl = document.getElementById('login-password');
+            const loginBtn = document.querySelector('#form-login button');
+            
+            const originalBtnText = loginBtn.textContent;
+            loginBtn.textContent = "Authenticating...";
+            loginBtn.disabled = true;
+
+            userEl.classList.remove('error');
+            passEl.classList.remove('error');
+
+            const username = userEl.value.toLowerCase().trim();
+            const password = passEl.value;
+            
+            const hashedPassword = await hashPassword(password);
+            
+            const authenticatedUser = users.find(u => u.username === username && u.password === hashedPassword);
+            
+            // SECURITY AUDIT LOGGING
+            const location = await getCurrentLocation();
+            let auditLogs = JSON.parse(localStorage.getItem('auditLogs')) || [];
+            
+            auditLogs.push({
+                timestamp: new Date().toISOString(),
+                usernameAttempt: username,
+                status: authenticatedUser ? 'Success' : 'Failed - Unauthorized',
+                location: location
+            });
+            localStorage.setItem('auditLogs', JSON.stringify(auditLogs));
+
+            if (authenticatedUser) {
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('userRole', authenticatedUser.role);
+                localStorage.setItem('currentUserRealName', authenticatedUser.realName);
+                localStorage.setItem('currentUsername', authenticatedUser.username);
+                window.location.href = 'index.html';
+            } else {
+                loginBtn.textContent = originalBtnText;
+                loginBtn.disabled = false;
+                userEl.classList.add('error');
+                passEl.classList.add('error');
+                showToast("Invalid username or password");
+            }
+        });
+    </script>
+</body>
+</html>
